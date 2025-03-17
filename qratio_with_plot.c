@@ -1,7 +1,10 @@
 #include "TFile.h"
 #include "TTree.h"
 #include "TH1D.h"
+#include "TCanvas.h"
+#include "TLegend.h"
 #include "TF1.h"
+#include "TPaveText.h"
 #include <iostream>
 #include <fstream>
 #include <cmath>
@@ -61,11 +64,12 @@ void qratio(const char* fileLocation1, const char* fileLocation2, int nBins = 10
             h2->Fill(Q2 / Q1);
     }
     
-    // Fit Gaussians to calculate parameters
+    // Revert to the original simpler Gaussian fit for h1
     TF1* g1 = new TF1("g1", "gaus", lowRange, highRange);
     g1->SetParameters(h1->GetMaximum(), h1->GetMean(), h1->GetRMS());
     h1->Fit(g1, "Q"); // Q = quiet mode
     
+    // Revert to the original simpler Gaussian fit for h2
     TF1* g2 = new TF1("g2", "gaus", lowRange, highRange);
     g2->SetParameters(h2->GetMaximum(), h2->GetMean(), h2->GetRMS());
     h2->Fit(g2, "Q"); // Q = quiet mode
@@ -79,17 +83,34 @@ void qratio(const char* fileLocation1, const char* fileLocation2, int nBins = 10
     double sigma2 = g2->GetParameter(2);
     double fwhm2 = 2.355 * sigma2;
    
-    // Write results to text file
-    std::ofstream txtOut;
-    txtOut.open("output.txt", std::ios::app);
-    txtOut << mean1 << " " << mean2 << " " << fwhm1 << " " << fwhm2 << std::endl;
+    ofstream txtOut;
+    txtOut.open("output.txt", ios::app);
+    txtOut << mean1 << " " << mean2 << " " << fwhm1 << " " << fwhm2 << endl;
     txtOut.close();
     
+    // Plot both histograms
+    h1->SetLineColor(kRed);
+    g1->SetLineColor(kRed);
+    h2->SetLineColor(kBlue);
+    g2->SetLineColor(kBlue);
+    
+    TCanvas* c1 = new TCanvas("c1", "Q Ratio Comparison", 800, 600);
+    h1->SetStats(0); // Remove statistics box from h1
+    h1->Draw();
+    h2->Draw("SAME");
+    
+    // Draw fit functions
+    g1->Draw("SAME");
+    g2->Draw("SAME");
+  
+    TLegend* legend = new TLegend(0.7, 0.7, 0.9, 0.9);
+    legend->AddEntry(h1, "10 degrees", "l");
+    legend->AddEntry(h2, "30 degrees", "l");
+    legend->Draw();
+    
+    c1->SaveAs("Q_ratio.png");
+    
     // Clean up
-    delete h1;
-    delete h2;
-    delete g1;
-    delete g2;
     file1->Close();
     file2->Close();
 }
