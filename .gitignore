@@ -1,7 +1,5 @@
-.gitignore
 /proj
-*.png
 output.txt
+plots/
 ff.cpp
-run.sh
-.vscode
+.vscode/
