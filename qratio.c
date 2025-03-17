@@ -62,55 +62,17 @@ void qratio(const char* fileLocation1, const char* fileLocation2, int nBins = 10
             h2->Fill(Q2 / Q1);
     }
     
-    // Fit Gaussian to h1 - with better range and background
-    double peakBin1 = h1->GetMaximumBin();
-    double peakCenter1 = h1->GetXaxis()->GetBinCenter(peakBin1);
-    double peakHeight1 = h1->GetBinContent(peakBin1);
-    double peakWidth1 = h1->GetRMS()/2;  // Use narrower width estimate
+    // Revert to the original simpler Gaussian fit for h1
+    TF1* g1 = new TF1("g1", "gaus", lowRange, highRange);
+    g1->SetParameters(h1->GetMaximum(), h1->GetMean(), h1->GetRMS());
+    h1->Fit(g1, "Q"); // Q = quiet mode
     
-    // Define a narrower fit range around the peak
-    double fitRangeMin1 = peakCenter1 - 10*peakWidth1;
-    double fitRangeMax1 = peakCenter1 + 10*peakWidth1;
+    // Revert to the original simpler Gaussian fit for h2
+    TF1* g2 = new TF1("g2", "gaus", lowRange, highRange);
+    g2->SetParameters(h2->GetMaximum(), h2->GetMean(), h2->GetRMS());
+    h2->Fit(g2, "Q"); // Q = quiet mode
     
-    // Make sure fit range stays within histogram bounds
-    if (fitRangeMin1 < lowRange) fitRangeMin1 = lowRange;
-    if (fitRangeMax1 > highRange) fitRangeMax1 = highRange;
-    
-    // Use a Gaussian + constant background
-    TF1* g1 = new TF1("g1", "gaus(0) + pol0(3)", fitRangeMin1, fitRangeMax1);
-    g1->SetParameters(peakHeight1, peakCenter1, peakWidth1, h1->GetMinimum());
-    // Limit parameters to reasonable values
-    g1->SetParLimits(0, 0, 2*peakHeight1);     // amplitude
-    g1->SetParLimits(1, fitRangeMin1, fitRangeMax1); // mean
-    g1->SetParLimits(2, peakWidth1/10, peakWidth1*5); // sigma
-    
-    h1->Fit(g1, "R+"); // R = use fit range, + = add to existing functions
-    
-    // Fit Gaussian to h2 - with better range and background
-    double peakBin2 = h2->GetMaximumBin();
-    double peakCenter2 = h2->GetXaxis()->GetBinCenter(peakBin2);
-    double peakHeight2 = h2->GetBinContent(peakBin2);
-    double peakWidth2 = h2->GetRMS()/2;  // Use narrower width estimate
-    
-    // Define a narrower fit range around the peak
-    double fitRangeMin2 = peakCenter2 - 10*peakWidth2;
-    double fitRangeMax2 = peakCenter2 + 10*peakWidth2;
-    
-    // Make sure fit range stays within histogram bounds
-    if (fitRangeMin2 < lowRange) fitRangeMin2 = lowRange;
-    if (fitRangeMax2 > highRange) fitRangeMax2 = highRange;
-    
-    // Use a Gaussian + constant background
-    TF1* g2 = new TF1("g2", "gaus(0) + pol0(3)", fitRangeMin2, fitRangeMax2);
-    g2->SetParameters(peakHeight2, peakCenter2, peakWidth2, h2->GetMinimum());
-    // Limit parameters to reasonable values
-    g2->SetParLimits(0, 0, 2*peakHeight2);     // amplitude
-    g2->SetParLimits(1, fitRangeMin2, fitRangeMax2); // mean
-    g2->SetParLimits(2, peakWidth2/10, peakWidth2*5); // sigma
-    
-    h2->Fit(g2, "R+"); // R = use fit range, + = add to existing functions
-    
-    // Extract fit parameters - using only the Gaussian part
+    // Extract fit parameters
     double mean1 = g1->GetParameter(1);
     double sigma1 = g1->GetParameter(2);
     double fwhm1 = 2.355 * sigma1;
@@ -144,19 +106,7 @@ void qratio(const char* fileLocation1, const char* fileLocation2, int nBins = 10
     // Draw fit functions
     g1->Draw("SAME");
     g2->Draw("SAME");
-    
-    // Add text with fit results
-    TPaveText* pt = new TPaveText(0.15, 0.65, 0.45, 0.85, "NDC");
-    pt->SetFillColor(0);
-    pt->SetBorderSize(1);
-    pt->SetTextAlign(12);
-    
-    pt->AddText(Form("10 degrees - Mean: %.4f", mean1));
-    pt->AddText(Form("10 degrees - FWHM: %.4f", fwhm1));
-    pt->AddText(Form("30 degrees - Mean: %.4f", mean2));
-    pt->AddText(Form("30 degrees - FWHM: %.4f", fwhm2));
-    pt->Draw();
-    
+  
     TLegend* legend = new TLegend(0.7, 0.7, 0.9, 0.9);
     legend->AddEntry(h1, "10 degrees", "l");
     legend->AddEntry(h2, "30 degrees", "l");

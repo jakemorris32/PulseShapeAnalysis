@@ -1,0 +1,6 @@
+#!/bin/bash
+
+echo "Loading ROOT/6.34.04-ubuntu24.04-x86_64" 
+
+module load ROOT/6.34.04-ubuntu24.04-x86_64
+
