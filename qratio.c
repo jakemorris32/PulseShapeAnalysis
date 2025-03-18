@@ -14,10 +14,12 @@
 
 void qratio(const char* fileLocation1, const char* fileLocation2,
 			const char* Q1BranchAddress, const char* Q2BranchAddress,
-			int nBins = 500, double lowRange = -1, double highRange = -1,
-			bool plot = false)
+			bool plot = false,
+			int nBins = 500, double lowRange = -1, double highRange = -1
+			)
 
 {
+	std::cout << plot << std::endl;
 	// Open file1 and get tree
 	TFile* file1 = TFile::Open(fileLocation1, "READ");
 	if (!file1 || file1->IsZombie()) {
@@ -48,103 +50,74 @@ void qratio(const char* fileLocation1, const char* fileLocation2,
 	
 	double Q1, Q2;
 	
-	// Find a range focused on the main peak if not specified
-	if (lowRange < 0 || highRange < 0) {
-		// Create temporary histograms with very wide range
-		TH1D* tempH1 = new TH1D("tempH1", "", 1000, 0.0, 3.0);
-		TH1D* tempH2 = new TH1D("tempH2", "", 1000, 0.0, 3.0);
-		
-		// Fill temporary histograms
-		tree1->SetBranchAddress(Q1BranchAddress, &Q1);
-		tree1->SetBranchAddress(Q2BranchAddress, &Q2);
-		Long64_t nEntries1 = tree1->GetEntries();
-		
-		for (Long64_t i = 0; i < nEntries1; i++) {
-			tree1->GetEntry(i);
-			if (Q1 != 0) {
-				double ratio = Q2 / Q1;
-				if (std::isfinite(ratio) && ratio > 0 && ratio < 3.0) {
-					tempH1->Fill(ratio);
-				}
+	tree1->SetBranchAddress(Q1BranchAddress, &Q1);
+	tree1->SetBranchAddress(Q2BranchAddress, &Q2);
+	Long64_t nEntries1 = tree1->GetEntries();
+
+	tree2->SetBranchAddress(Q1BranchAddress, &Q1);
+	tree2->SetBranchAddress(Q2BranchAddress, &Q2);
+	Long64_t nEntries2 = tree2->GetEntries();
+
+	std::vector<double> ratios1, ratios2;
+	ratios1.reserve(nEntries1);
+	ratios2.reserve(nEntries2);
+
+	// Calculate Q2/Q1 ratios for file1
+	for (Long64_t i = 0; i < nEntries1; ++i) {
+		tree1->GetEntry(i);
+		if (Q1 != 0.0) {
+			double r = Q2 / Q1;
+			if (std::isfinite(r)) {
+				ratios1.push_back(r);
 			}
 		}
-		
-		tree2->SetBranchAddress(Q1BranchAddress, &Q1);
-		tree2->SetBranchAddress(Q2BranchAddress, &Q2);
-		Long64_t nEntries2 = tree2->GetEntries();
-		
-		for (Long64_t i = 0; i < nEntries2; i++) {
-			tree2->GetEntry(i);
-			if (Q1 != 0) {
-				double ratio = Q2 / Q1;
-				if (std::isfinite(ratio) && ratio > 0 && ratio < 3.0) {
-					tempH2->Fill(ratio);
-				}
-			}
-		}
-		
-		// Find bins with maximum content (peaks)
-		int maxBin1 = tempH1->GetMaximumBin();
-		int maxBin2 = tempH2->GetMaximumBin();
-		
-		// Get x-values at these bins (peak positions)
-		double peakPos1 = tempH1->GetXaxis()->GetBinCenter(maxBin1);
-		double peakPos2 = tempH2->GetXaxis()->GetBinCenter(maxBin2);
-		
-		// Set range to be around the peak positions
-		// Use a fixed width around each peak
-		double width = 0.3; // adjust based on expected width of your distributions
-		
-		double low1 = peakPos1 - width;
-		double high1 = peakPos1 + width;
-		double low2 = peakPos2 - width;
-		double high2 = peakPos2 + width;
-		
-		// Take the wider range to ensure both distributions are visible
-		if (lowRange < 0) lowRange = std::min(low1, low2);
-		if (highRange < 0) highRange = std::max(high1, high2);
-		
-		std::cout << "Range focused around peaks: [" << lowRange << ", " << highRange << "]" << std::endl;
-		std::cout << "Peak positions: " << peakPos1 << ", " << peakPos2 << std::endl;
-		
-		// Clean up
-		delete tempH1;
-		delete tempH2;
 	}
 	
+	// Calculate Q2/Q1 ratios for file2
+	for (Long64_t i = 0; i < nEntries2; ++i) {
+		tree2->GetEntry(i);
+		if (Q1 != 0.0) {
+			double r = Q2 / Q1;
+			if (std::isfinite(r)) {
+				ratios2.push_back(r);
+			}
+		}
+	}
+
+	// Determine range if not provided
+	if (lowRange < 0 || highRange < 0) {
+		if (!ratios1.empty() && !ratios2.empty()) {
+			std::vector<double> allRatios = ratios1;	
+			allRatios.insert(allRatios.end(), ratios2.begin(), ratios2.end());
+			std::sort(allRatios.begin(), allRatios.end());
+			// Calculate 5th and 95th percentile
+			size_t i5 = static_cast<size_t>(0.05 * allRatios.size());
+			size_t i95 = static_cast<size_t>(0.95 * allRatios.size());
+			double p5 = allRatios[i5];
+			double p95 = allRatios[i95];
+			// Set range with 20% padding
+			lowRange = p5;
+			highRange = p95;
+			double padding = 0.20 * (highRange - lowRange);
+			lowRange -= padding;
+			highRange += padding;
+		}
+		std::cout << "Range determined [" << lowRange << ", " << highRange << "]" << std::endl;
+	}
+
 	// Create histograms with the determined range
 	TH1D* h1 = new TH1D("h1", "", nBins, lowRange, highRange);
 	TH1D* h2 = new TH1D("h2", "", nBins, lowRange, highRange);
 	
-	// Fill histograms using the calculated ratios
-	tree1->SetBranchAddress(Q1BranchAddress, &Q1);
-	tree1->SetBranchAddress(Q2BranchAddress, &Q2);
-	Long64_t nEntries1 = tree1->GetEntries();
-	
-	for (Long64_t i = 0; i < nEntries1; i++) {
-		tree1->GetEntry(i);
-		if (Q1 != 0) {
-			double ratio = Q2 / Q1;
-			if (std::isfinite(ratio)) { // Check for NaN or Inf
-				h1->Fill(ratio);
-			}
-		}
+	// Fill histograms with the calculated ratios
+	for (double r : ratios1) {
+		h1->Fill(r);
 	}
 	
-	tree2->SetBranchAddress(Q1BranchAddress, &Q1);
-	tree2->SetBranchAddress(Q2BranchAddress, &Q2);
-	Long64_t nEntries2 = tree2->GetEntries();
-	
-	for (Long64_t i = 0; i < nEntries2; i++) {
-		tree2->GetEntry(i);
-		if (Q1 != 0) {
-			double ratio = Q2 / Q1;
-			if (std::isfinite(ratio)) { // Check for NaN or Inf
-				h2->Fill(ratio);
-			}
-		}
+	for (double r : ratios2) {
+		h2->Fill(r);
 	}
-	
+
 	// Fit Gaussians to calculate parameters
 	TF1* g1 = new TF1("g1", "gaus", lowRange, highRange);
 	g1->SetParameters(h1->GetMaximum(), h1->GetMean(), h1->GetRMS());
@@ -196,7 +169,7 @@ void qratio(const char* fileLocation1, const char* fileLocation2,
 
 
 
-	// Clean up
+		// Clean up
 	delete h1;
 	delete h2;
 	delete g1;
