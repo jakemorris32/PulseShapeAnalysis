@@ -3,3 +3,9 @@ output.txt
 plots/
 ff.cpp
 .vscode/
+qratio_c.so
+qratio_c_ACLiC_dict_rdict.pcm
+QPLOT.png
+qdc_c_ACLiC_dict_rdict.pcm
+average_plot2.png
+.gitignore
