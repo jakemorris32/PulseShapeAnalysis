@@ -8,13 +8,13 @@ void gatematrix(){
     gSystem->Load("qratio_c.so");
 
     // Define the number of steps (gate combinations) for each parameter
-    const int numT1 = 12;  // number of t1 values
-    const int numT2 = 15;  // number of t2 values
+    const int numT1 = 51;  // number of t1 values
+    const int numT2 = 51;  // number of t2 values
 
     // Define the range boundaries for t1 and t2
     const int t1_min = 1100;
-    const int t1_max = 3100;
-    const int t2_min = 3100;
+    const int t1_max = 6100;
+    const int t2_min = 1100;
     const int t2_max = 6100;
 
     std::cout << "Starting gatematrix loop with " << numT1 * numT2 
@@ -26,7 +26,13 @@ void gatematrix(){
         for (int j = 0; j < numT2; j++) {
             // Compute t2 value by linear interpolation over the range
             int t2 = t2_min + j * (t2_max - t2_min) / (numT2 - 1);
-
+            if (t1 >= t2) {
+                {
+                    std::ofstream txtOut("output.txt", std::ios::app);
+                    txtOut << t1 << " " << t2 << " 0" << std::endl;
+                }
+                continue;  // skip t1 >= t2
+            }
             // Run QDC analysis for both root files
             qdc("/shared/storage/physnp/jm2912/degrees_10_adjusted.root", t1, t2);
             qdc("/shared/storage/physnp/jm2912/degrees_30_adjusted.root", t1, t2);
@@ -46,10 +52,8 @@ void gatematrix(){
                 "/shared/storage/physnp/jm2912/degrees_30_adjusted.root",
                 Q1BranchName.c_str(), Q2BranchName.c_str());
 
-            // (Optional: simulate a 20-second processing delay for testing)
-            // gSystem->Sleep(20000);
+            }
         }
-    }
     std::cout << "Gatematrix loop complete." << std::endl;
 
 }
