@@ -9,3 +9,8 @@ QPLOT.png
 qdc_c_ACLiC_dict_rdict.pcm
 average_plot2.png
 .gitignore
+*.png
+*.so
+*.pcm
+*.txt
+*.so
