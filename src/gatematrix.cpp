@@ -1,6 +1,8 @@
 #include <string>
 #include <fstream>
 #include <iostream>
+#include "TSystem.h"   // added for gSystem->Load
+#include "TString.h"   // added for Form
 
 void gatematrix(){
 
@@ -18,8 +20,7 @@ void gatematrix(){
     const int t2_max = 6100;
 
     std::cout << "Starting gatematrix loop with " << numT1 * numT2 
-            << " iterations (expected ~60 minutes total)..." << std::endl;
-
+              << " iterations (expected ~60 minutes total)..." << std::endl;
     for (int i = 0; i < numT1; i++) {
         // Compute t1 value by linear interpolation over the range
         int t1 = t1_min + i * (t1_max - t1_min) / (numT1 - 1);
@@ -27,10 +28,8 @@ void gatematrix(){
             // Compute t2 value by linear interpolation over the range
             int t2 = t2_min + j * (t2_max - t2_min) / (numT2 - 1);
             if (t1 >= t2) {
-                {
-                    std::ofstream txtOut("output.txt", std::ios::app);
-                    txtOut << t1 << " " << t2 << " 0" << std::endl;
-                }
+                std::ofstream txtOut("output.txt", std::ios::app);
+                txtOut << t1 << " " << t2 << " 0" << std::endl;
                 continue;  // skip t1 >= t2
             }
             // Run QDC analysis for both root files
@@ -42,18 +41,15 @@ void gatematrix(){
                 std::ofstream txtOut("output.txt", std::ios::app);
                 txtOut << t1 << " " << t2 << " ";
             }
-
             // Create branch names based on current t1 and t2 values
             std::string Q1BranchName = Form("Q1_%d_%d_val", t1, t2);
             std::string Q2BranchName = Form("Q2_%d_%d_val", t1, t2);
 
             // Run the qratio analysis with the generated branch names
             qratio("/shared/storage/physnp/jm2912/degrees_10_adjusted.root",
-                "/shared/storage/physnp/jm2912/degrees_30_adjusted.root",
-                Q1BranchName.c_str(), Q2BranchName.c_str());
-
-            }
+                   "/shared/storage/physnp/jm2912/degrees_30_adjusted.root",
+                   Q1BranchName.c_str(), Q2BranchName.c_str());
         }
+    }
     std::cout << "Gatematrix loop complete." << std::endl;
-
 }

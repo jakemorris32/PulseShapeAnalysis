@@ -12,13 +12,13 @@
 #include "TCanvas.h"
 #include "TLegend.h"
 
-void qratio(const char* fileLocation1, const char* fileLocation2,
-			const char* Q1BranchAddress, const char* Q2BranchAddress,
-			bool plot = false,
-			int nBins = 500, double lowRange = -1, double highRange = -1
-			)
+void func_hist(const char* fileLocation1, const char* fileLocation2,
+			    const char* BranchAddress,  
+			    bool plot = false,
+			    int nBins = 500, double lowRange = 1000, double highRange = 1200,
+				const char* plotName = "func_hist.png"
+			    ) {
 
-{
 	std::cout << plot << std::endl;
 	// Open file1 and get tree
 	TFile* file1 = TFile::Open(fileLocation1, "READ");
@@ -48,75 +48,29 @@ void qratio(const char* fileLocation1, const char* fileLocation2,
 		return;
 	}
 	
-	double Q1, Q2;
+	double p1, p2;
 	
-	tree1->SetBranchAddress(Q1BranchAddress, &Q1);
-	tree1->SetBranchAddress(Q2BranchAddress, &Q2);
+	tree1->SetBranchAddress(BranchAddress, &p1);
 	Long64_t nEntries1 = tree1->GetEntries();
 
-	tree2->SetBranchAddress(Q1BranchAddress, &Q1);
-	tree2->SetBranchAddress(Q2BranchAddress, &Q2);
+	tree2->SetBranchAddress(BranchAddress, &p2);
 	Long64_t nEntries2 = tree2->GetEntries();
 
-	std::vector<double> ratios1, ratios2;
-	ratios1.reserve(nEntries1);
-	ratios2.reserve(nEntries2);
 
-	// Calculate Q2/Q1 ratios for file1
-	for (Long64_t i = 0; i < nEntries1; ++i) {
-		tree1->GetEntry(i);
-		if (Q1 != 0.0) {
-			double r = Q2 / Q1;
-			if (std::isfinite(r)) {
-				ratios1.push_back(r);
-			}
-		}
-	}
-	
-	// Calculate Q2/Q1 ratios for file2
-	for (Long64_t i = 0; i < nEntries2; ++i) {
-		tree2->GetEntry(i);
-		if (Q1 != 0.0) {
-			double r = Q2 / Q1;
-			if (std::isfinite(r)) {
-				ratios2.push_back(r);
-			}
-		}
-	}
-
-	// Determine range if not provided
-	if (lowRange < 0 || highRange < 0) {
-		if (!ratios1.empty() && !ratios2.empty()) {
-			std::vector<double> allRatios = ratios1;	
-			allRatios.insert(allRatios.end(), ratios2.begin(), ratios2.end());
-			std::sort(allRatios.begin(), allRatios.end());
-			// Calculate 5th and 95th percentile
-			size_t i5 = static_cast<size_t>(0.05 * allRatios.size());
-			size_t i95 = static_cast<size_t>(0.95 * allRatios.size());
-			double p5 = allRatios[i5];
-			double p95 = allRatios[i95];
-			// Set range with 20% padding
-			lowRange = p5;
-			highRange = p95;
-			double padding = 0.20 * (highRange - lowRange);
-			lowRange -= padding;
-			highRange += padding;
-		}
-		std::cout << "Range determined [" << lowRange << ", " << highRange << "]" << std::endl;
-	}
-
-	// Create histograms with the determined range
 	TH1D* h1 = new TH1D("h1", "", nBins, lowRange, highRange);
 	TH1D* h2 = new TH1D("h2", "", nBins, lowRange, highRange);
 	
-	// Fill histograms with the calculated ratios
-	for (double r : ratios1) {
-		h1->Fill(r);
-	}
-	
-	for (double r : ratios2) {
-		h2->Fill(r);
-	}
+	// Fill histograms with the p1 and p2
+    for (Long64_t i = 0; i < nEntries1; ++i) {
+        tree1->GetEntry(i);
+        h1->Fill(p1);
+    }
+
+    for (Long64_t i = 0; i < nEntries2; ++i) {
+        tree2->GetEntry(i);
+        h2->Fill(p2);
+    }
+
 
 	// Fit Gaussians to calculate parameters
 	TF1* g1 = new TF1("g1", "gaus", lowRange, highRange);
@@ -136,14 +90,11 @@ void qratio(const char* fileLocation1, const char* fileLocation2,
 	double fwhm2 = 2.355 * sigma2;
 
 	double fom = (mean1 - mean2) / (fwhm1 + fwhm2);
-	std::ofstream txtOut;
-	txtOut.open("output.txt", std::ios::app);  // Fixed duplicate line
-	txtOut << fom << std::endl;
-	txtOut.close();
-	
+
 	if (plot == true){
 		// Plot both histograms
 		std::cout << "Plotting histograms..." << std::endl;
+		h1->SetTitle(BranchAddress);
 		h1->SetLineColor(kRed);
 		g1->SetLineColor(kRed);
 		h2->SetLineColor(kBlue);
@@ -163,17 +114,37 @@ void qratio(const char* fileLocation1, const char* fileLocation2,
 		legend->AddEntry(h2, "30 degrees", "l");
 		legend->Draw();
 	
-		c1->SaveAs("QPLOT.png");
+		c1->SaveAs(plotName);
 		
 	}
 
-
-
-		// Clean up
+	// Clean up
 	delete h1;
 	delete h2;
 	delete g1;
 	delete g2;
 	file1->Close();
 	file2->Close();
+}
+
+void plot_all_params() {
+	// Plot Amp, Tau, Amp1, Tau1, Amp2, Tau2
+	func_hist("/shared/storage/physnp/jm2912/degrees_10_adjusted.root",
+			  "/shared/storage/physnp/jm2912/degrees_30_adjusted.root",
+			  "Amp", true, 500, 0, 1000, "Amp.png");
+	func_hist("/shared/storage/physnp/jm2912/degrees_10_adjusted.root",
+			  "/shared/storage/physnp/jm2912/degrees_30_adjusted.root",
+			  "Tau", true, 500, 1000, 1200, "Tau.png");
+	func_hist("/shared/storage/physnp/jm2912/degrees_10_adjusted.root",
+			  "/shared/storage/physnp/jm2912/degrees_30_adjusted.root",
+			  "Amp1", true, 500, 0, 1000, "Amp1.png");
+	func_hist("/shared/storage/physnp/jm2912/degrees_10_adjusted.root",
+			  "/shared/storage/physnp/jm2912/degrees_30_adjusted.root",
+			  "Tau1", true, 500, 1000, 1200, "Tau1.png");
+	func_hist("/shared/storage/physnp/jm2912/degrees_10_adjusted.root",
+			  "/shared/storage/physnp/jm2912/degrees_30_adjusted.root",
+			  "Amp2", true, 500, 0, 1000, "Amp2.png");
+	func_hist("/shared/storage/physnp/jm2912/degrees_10_adjusted.root",
+			  "/shared/storage/physnp/jm2912/degrees_30_adjusted.root",
+			  "Tau2", true, 500, 1000, 1200, "Tau2.png");
 }

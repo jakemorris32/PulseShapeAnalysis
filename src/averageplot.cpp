@@ -51,7 +51,7 @@ void plot(){
     g1->GetHistogram()->SetAxisRange(0, 6000, "X");
 
     
-    c1->SaveAs("average_plot2.png");
+    c1->SaveAs("average_plot10.png");
 
     file1->Close();
 
