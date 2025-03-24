@@ -162,11 +162,6 @@ void qratio(const char* fileLocation1, const char* fileLocation2,
 		g1->Draw("SAME");
 		g2->Draw("SAME");
 	
-		TLegend* legend = new TLegend(0.7, 0.7, 0.9, 0.9);
-		legend->AddEntry(h1, "10 degrees", "l");
-		legend->AddEntry(h2, "30 degrees", "l");
-		legend->Draw();
-	
 		c1->SaveAs("QPLOT.png");
 		
 	}
